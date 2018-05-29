@@ -1,0 +1,71 @@
+Problem Statement: Given user website history looking at hotels within a city predict which hotel the user is going to look at next which is not already in their browsing history
+
+Given: 
+User Activity data
+Hotel rating data
+User continent & gender data
+
+Approach:
+
+The problem can be rephrased as an item recommendation problem. The task of item recommendation is to create a user specific ranking for a set of items. Preferences of users viewing the hotels is learned from their past interactions with the system.
+My work uses ALS and Learning to Rank (BPR and WARP Loss functions)
+
+Feature Generation:
+
+Item Feature Matrix
+1. Hotel Continent History = Create a string of comma separated home continents for every hotel by view counts greater than median value of every hotel
+2. User History = Create a string of comma separated hotel visited in all continents
+
+Model 1:
+Since the feedback is implicit I use Weighted Regularized Matrix Factorization (WRMF) 
+WRMF model is scalable and contains less hyperparameters to tune
+The model just uses the (user, item) matrix and does not use any side information to make the predictions
+
+The WRMF models best results with not much hyperparameter tuning is:
+{'alpha': 1, 'regularization': 10.0, 'num_factors': 40}
+precision@1 = 0.0930897887324
+Epoch: 200
+The results can be seen in Notebook
+
+Custom Methods:
+train_test_split - Since we are predicting the next hotel the user is going to view we split the data in the following way:
+1. Randomly select an item for test set since there is no order
+2. Add rest of the items in the training set
+
+precision_at_k - Calculate precision@1 since we are predicting the next hotel. If item in test doesnt match the first item in prediction which is not seen by user before, we add it to precisions array. To calculate precision over test set, we take the mean
+
+Hyperparameters:
+param_grid = {'num_factors': [40, 80, 120],
+              'regularization': [0.0, 1e-5, 1e-3, 1e-1, 1e1, 1e2],
+              'alpha': [1, 10]}
+
+Model 2:
+In our previous approach we could not use any side information or meta information that was available to us about users or items
+Learning to Rank uses SGD with with BPR/WARP  loss functions with adagrad lr scheduler
+
+The model best results with not much hyperparameter tuning is:
+{'no_components': 40, 'user_alpha': 0.1, 'learning_rate': 1, 'item_alpha': 0.1, 'loss': 'warp'}
+precision@1: 0.0677816901408
+Epoch: 400
+
+We use the item_feature_concat & user_feature_concat to use user & item features in this model
+
+Custom Methods:
+train_test_split - Same as Model 1
+precision_at_k - Calculate precision@1 
+
+Hyperparameters:
+param_grid = {'no_components': [40, 80, 120],
+              'user_alpha': [0.0, 1e-5, 1e-3, 1e-1],
+              'item_alpha': [0.0, 1e-5, 1e-3, 1e-1],
+              'learning_rate': [1, 10],
+            'loss': ['warp','bpr']}
+
+Final Model:
+Based on the Precision@1 metric, we decide to use Model 1 for generating our prediction file
+
+ALS model : docs/als_complete_model.pkl
+
+Prediction File :
+
+docs/user_predictions.tsv
